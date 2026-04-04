@@ -19,110 +19,115 @@ fun App() {
         val repository = remember { AppRepository() }
         val scope = rememberCoroutineScope()
 
-        // Generăm un ID unic per tab pentru testare
-        val currentUserId = remember { "user_${(1..100).random()}" }
+        // State pentru Input Nume
+        var userNameInput by remember { mutableStateOf("") }
+        var currentUserId by remember { mutableStateOf("") }
+        var isRegistered by remember { mutableStateOf(false) }
+
         val studyTag = "kotlin"
 
+        // Ascultăm datele globale
         val availablePartners by repository.getAvailablePartners(studyTag, currentUserId).collectAsState(emptyList())
         val activeSessions by repository.getActiveSessions().collectAsState(emptyList())
 
         Column(modifier = Modifier.fillMaxSize().padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Text("User ID: $currentUserId", style = MaterialTheme.typography.headlineSmall)
-            Text("Tag studiu: $studyTag")
 
-            Spacer(Modifier.height(20.dp))
+            if (!isRegistered) {
+                // ECRAN ÎNREGISTRARE (Username)
+                Text("Introduceți un nume pentru a începe", style = MaterialTheme.typography.headlineSmall)
+                TextField(
+                    value = userNameInput,
+                    onValueChange = { userNameInput = it },
+                    label = { Text("Username") }
+                )
+                Button(
+                    onClick = {
+                        if (userNameInput.isNotBlank()) {
+                            currentUserId = "user_${userNameInput.lowercase()}"
+                            isRegistered = true
+                        }
+                    },
+                    modifier = Modifier.padding(top = 8.dp)
+                ) { Text("Salvează și Intră") }
+            } else {
+                // ECRAN MATCHMAKING
+                Text("Salut, $userNameInput!", style = MaterialTheme.typography.headlineSmall)
+                Text("ID: $currentUserId | Tag: $studyTag")
 
-            Button(onClick = {
-                scope.launch {
-                    try {
-                        // REPARARE: Creăm/Update-ăm profilul complet pentru a evita eroarea NOT_FOUND
+                Spacer(Modifier.height(20.dp))
+
+                Button(onClick = {
+                    scope.launch {
                         val userProfile = User(
                             id = currentUserId,
-                            name = "Student $currentUserId",
+                            name = userNameInput,
                             studySubject = studyTag,
-                            isAvailable = true // Îl facem disponibil direct aici
+                            isAvailable = true
                         )
                         repository.updateProfile(userProfile)
-
-                        // Opțional, forțăm și disponibilitatea dacă documentul exista deja
-                        repository.setAvailability(currentUserId, true, studyTag)
-                    } catch (e: Exception) {
-                        println("Eroare la activare: ${e.message}")
                     }
-                }
-            }) {
-                Text("Caută Partener (Start Session)")
-            }
+                }) { Text("Caută Partener (Start Session)") }
 
-            Spacer(Modifier.height(20.dp))
+                Spacer(Modifier.height(20.dp))
 
-            // Vizualizare parteneri în timp real
-            Text("Parteneri online pentru $studyTag: ${availablePartners.size}", fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
-
-            availablePartners.forEach { partner ->
-                // DEBUG: Verifică dacă ID-ul nu e gol
-                val partnerId = if (partner.id.isEmpty()) "ID_NECUNOSCUT" else partner.id
-
-                Card(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
-                    Row(modifier = Modifier.padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text("Partener: $partnerId") // Folosește variabila de debug
-
-                        Button(onClick = {
-                            if (partner.id.isNotEmpty() && currentUserId.isNotEmpty()) {
+                Text("Parteneri online: ${availablePartners.size}")
+                availablePartners.forEach { partner ->
+                    Card(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+                        Row(modifier = Modifier.padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text("Partner: ${partner.name}", modifier = Modifier.weight(1f))
+                            Button(onClick = {
                                 scope.launch {
+                                    val sessionId = "session_${currentUserId}_${partner.id}"
                                     val newSession = StudySession(
-                                        id = "session_${currentUserId}_${partner.id}", // Setează manual un ID pentru sesiune
+                                        id = sessionId, // Setează explicit ID-ul aici!
                                         creatorId = currentUserId,
                                         participantIds = listOf(currentUserId, partner.id),
                                         subject = studyTag,
-                                        liveKitRoomName = "room_${currentUserId}_${partner.id}",
-                                        startTime = 0.0,
                                         isActive = true
                                     )
-                                    // Folosim document().set() în loc de add() pentru a fi siguri de ID
                                     repository.createStudySession(newSession)
                                 }
-                            } else {
-                                println("Eroare: Unul dintre ID-uri este gol!")
-                            }
-                        }) {
-                            Text("Match!")
+                            }) { Text("Match!") }
                         }
                     }
                 }
-            }
 
-            // AUTO-JOIN: Dacă apare o sesiune în care suntem incluși, afișăm ecranul de apel
-            // Detectăm dacă suntem parte dintr-o sesiune
-            val mySession = activeSessions.find { it.participantIds.contains(currentUserId) }
-
-            if (mySession != null && mySession.id.isNotEmpty()) {
-                VideoCallScreen(mySession, repository)
+                // Detectăm dacă suntem într-o sesiune activă
+                val mySession = activeSessions.find { it.participantIds.contains(currentUserId) }
+                if (mySession != null) {
+                    VideoCallScreen(mySession, repository)
+                }
             }
         }
     }
 }
 
-// FUNCȚIA MUTATĂ ÎN AFARĂ
 @Composable
 fun VideoCallScreen(session: StudySession, repository: AppRepository) {
-    val scope = rememberCoroutineScope() // Avem nevoie de scope pentru apeluri Firebase
-    val token by repository.watchSessionToken(session.id).collectAsState("")
+    val scope = rememberCoroutineScope()
+    // Colectăm starea din Flow-ul de Firebase
+    val tokenState by repository.watchSessionToken(session.id).collectAsState("")
 
-    Column(Modifier.background(Color.Black).fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
-        // ... restul UI-ului tău ...
+    // Capturăm valoarea într-o variabilă locală pentru a permite Smart Cast
+    val currentToken = tokenState
+    val serverUrl = "wss://vostru-proiect.livekit.cloud"
 
-        Button(onClick = {
-            scope.launch {
-                try {
-                    // Trimitem obiectul 'session' primit ca parametru în VideoCallScreen
-                    repository.endSession(session)
-                } catch (e: Exception) {
-                    println("Eroare la închidere: ${e.message}")
-                }
+    Box(Modifier.background(Color.Black).fillMaxSize()) {
+        // Folosim variabila locală curentă
+        if (!currentToken.isNullOrEmpty()) {
+            LaunchedEffect(currentToken) {
+                // Acum compilatorul știe sigur că currentToken este String non-null
+                connectToLiveKit(serverUrl, currentToken)
             }
-        }) {
-            Text("Închide Apel", color = Color.White)
+
+            Text("Sunteți în direct!", color = Color.Green, modifier = Modifier.align(Alignment.Center))
+        } else {
+            CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
         }
+
+        Button(
+            onClick = { scope.launch { repository.endSession(session) } },
+            modifier = Modifier.align(Alignment.BottomCenter).padding(20.dp)
+        ) { Text("Închide Apel") }
     }
 }

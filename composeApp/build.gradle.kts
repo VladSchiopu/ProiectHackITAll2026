@@ -27,6 +27,13 @@ kotlin {
 
     
     sourceSets {
+
+        val jsMain by getting {
+            dependencies {
+                // Aceasta este varianta de JS pe care o adaugi în Gradle
+                implementation(npm("livekit-client", "2.0.4"))
+            }
+        }
         androidMain.dependencies {
             implementation(libs.compose.uiToolingPreview)
             implementation(libs.androidx.activity.compose)
@@ -80,5 +87,9 @@ android {
 
 dependencies {
     debugImplementation(libs.compose.uiTooling)
+}
+
+tasks.withType<ProcessResources> {
+    duplicatesStrategy = DuplicatesStrategy.INCLUDE
 }
 

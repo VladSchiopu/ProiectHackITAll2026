@@ -70,25 +70,37 @@ class AppRepository {
         return id
     }
 
+    // Adaugă/Actualizează în AppRepository.kt
     suspend fun endSession(session: StudySession) {
-        // 1. Marcăm sesiunea ca inactivă
+        // 1. Închidem sesiunea în DB
         db.collection("sessions").document(session.id).update(
             "isActive" to false,
             "liveKitToken" to ""
         )
 
-        // 2. IMPORTANT: Resetăm disponibilitatea participanților ca să poată fi găsiți iar
+        // 2. Resetăm disponibilitatea tuturor participanților
         session.participantIds.forEach { userId ->
             db.collection("users").document(userId).update(
                 "isAvailable" to false
             )
         }
     }
+
+
     fun getActiveSessions(): Flow<List<StudySession>> {
         return db.collection("sessions")
             .where("isActive", equalTo = true)
             .snapshots()
-            .map { query -> query.documents.map { it.data<StudySession>() } }
+            .map { query ->
+                query.documents.mapNotNull { doc ->
+                    try {
+                        doc.data<StudySession>()
+                    } catch (e: Exception) {
+                        println("Eroare conversie sesiune: ${e.message}")
+                        null // Ignorăm documentele corupte/incomplet create
+                    }
+                }
+            }
     }
 
     fun watchSessionToken(sessionId: String): Flow<String?> {
