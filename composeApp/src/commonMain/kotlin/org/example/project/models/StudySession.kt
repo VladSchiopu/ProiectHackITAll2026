@@ -8,8 +8,8 @@ data class StudySession(
     val creatorId: String = "",
     val participantIds: List<String> = emptyList(),
     val subject: String = "",
-    val startTime: Long = 0,
+    val startTime: Double = 0.0, // SCHIMBĂ din Long în Double
     val isActive: Boolean = true,
-    val liveKitRoomName: String = "", // Numele camerei LiveKit
-    val liveKitToken: String? = null  // Tokenul va fi scris aici de Firebase Functions
+    val liveKitRoomName: String = "",
+    val liveKitToken: String = ""
 )

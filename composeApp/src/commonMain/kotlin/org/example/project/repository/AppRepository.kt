@@ -61,10 +61,29 @@ class AppRepository {
     // --- LOGICĂ SESIUNI DE STUDIU ---
 
     suspend fun createStudySession(session: StudySession): String {
-        val docRef = db.collection("sessions").add(session)
-        return docRef.id // Returnăm ID-ul sesiunii create pentru a face join
+        val id = if (session.id.isEmpty()) {
+            db.collection("sessions").add(session).id
+        } else {
+            db.collection("sessions").document(session.id).set(session)
+            session.id
+        }
+        return id
     }
 
+    suspend fun endSession(session: StudySession) {
+        // 1. Marcăm sesiunea ca inactivă
+        db.collection("sessions").document(session.id).update(
+            "isActive" to false,
+            "liveKitToken" to ""
+        )
+
+        // 2. IMPORTANT: Resetăm disponibilitatea participanților ca să poată fi găsiți iar
+        session.participantIds.forEach { userId ->
+            db.collection("users").document(userId).update(
+                "isAvailable" to false
+            )
+        }
+    }
     fun getActiveSessions(): Flow<List<StudySession>> {
         return db.collection("sessions")
             .where("isActive", equalTo = true)

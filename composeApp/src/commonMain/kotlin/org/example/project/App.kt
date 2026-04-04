@@ -1,82 +1,128 @@
 package org.example.project
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.safeContentPadding
-import androidx.compose.material3.Button
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
+import androidx.compose.foundation.layout.*
+import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color // IMPORT NOU
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.tooling.preview.Preview
 import kotlinx.coroutines.launch
 import org.example.project.repository.AppRepository
-import org.jetbrains.compose.resources.painterResource
-import kotlinproject.composeapp.generated.resources.Res
-import kotlinproject.composeapp.generated.resources.compose_multiplatform
+import org.example.project.models.StudySession
+import org.example.project.models.User
 
 @Composable
-@Preview
 fun App() {
     MaterialTheme {
-        // Starea originală
-        var showContent by remember { mutableStateOf(false) }
-
-        // Stările noi pentru Firebase
         val repository = remember { AppRepository() }
-        val coroutineScope = rememberCoroutineScope()
-        var firebaseStatus by remember { mutableStateOf("Stare Firebase: Așteaptă...") }
+        val scope = rememberCoroutineScope()
 
-        Column(
-            modifier = Modifier
-                .background(MaterialTheme.colorScheme.primaryContainer)
-                .safeContentPadding()
-                .fillMaxSize(),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            // Butonul tău original
-            Button(onClick = { showContent = !showContent }) {
-                Text("Click me!")
-            }
+        // Generăm un ID unic per tab pentru testare
+        val currentUserId = remember { "user_${(1..100).random()}" }
+        val studyTag = "kotlin"
 
-            // Secțiunea originală cu imaginea și textul
-            AnimatedVisibility(showContent) {
-                val greeting = remember { Greeting().greet() }
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    Image(painterResource(Res.drawable.compose_multiplatform), null)
-                    Text("Compose: $greeting")
-                }
-            }
+        val availablePartners by repository.getAvailablePartners(studyTag, currentUserId).collectAsState(emptyList())
+        val activeSessions by repository.getActiveSessions().collectAsState(emptyList())
 
-            Spacer(modifier = Modifier.height(32.dp))
+        Column(modifier = Modifier.fillMaxSize().padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Text("User ID: $currentUserId", style = MaterialTheme.typography.headlineSmall)
+            Text("Tag studiu: $studyTag")
 
-            // --- NOU: Secțiunea de test Firebase ---
-            Text(firebaseStatus)
+            Spacer(Modifier.height(20.dp))
 
             Button(onClick = {
-                firebaseStatus = "Trimit date către Firebase..."
-                coroutineScope.launch {
+                scope.launch {
                     try {
-                        repository.testFirebaseConnection()
-                        firebaseStatus = "SUCCES! Obiectiv salvat în DB."
+                        // REPARARE: Creăm/Update-ăm profilul complet pentru a evita eroarea NOT_FOUND
+                        val userProfile = User(
+                            id = currentUserId,
+                            name = "Student $currentUserId",
+                            studySubject = studyTag,
+                            isAvailable = true // Îl facem disponibil direct aici
+                        )
+                        repository.updateProfile(userProfile)
+
+                        // Opțional, forțăm și disponibilitatea dacă documentul exista deja
+                        repository.setAvailability(currentUserId, true, studyTag)
                     } catch (e: Exception) {
-                        firebaseStatus = "EROARE: ${e.message}"
+                        println("Eroare la activare: ${e.message}")
                     }
                 }
             }) {
-                Text("Testează Firebase")
+                Text("Caută Partener (Start Session)")
             }
+
+            Spacer(Modifier.height(20.dp))
+
+            // Vizualizare parteneri în timp real
+            Text("Parteneri online pentru $studyTag: ${availablePartners.size}", fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+
+            availablePartners.forEach { partner ->
+                // DEBUG: Verifică dacă ID-ul nu e gol
+                val partnerId = if (partner.id.isEmpty()) "ID_NECUNOSCUT" else partner.id
+
+                Card(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+                    Row(modifier = Modifier.padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text("Partener: $partnerId") // Folosește variabila de debug
+
+                        Button(onClick = {
+                            if (partner.id.isNotEmpty() && currentUserId.isNotEmpty()) {
+                                scope.launch {
+                                    val newSession = StudySession(
+                                        id = "session_${currentUserId}_${partner.id}", // Setează manual un ID pentru sesiune
+                                        creatorId = currentUserId,
+                                        participantIds = listOf(currentUserId, partner.id),
+                                        subject = studyTag,
+                                        liveKitRoomName = "room_${currentUserId}_${partner.id}",
+                                        startTime = 0.0,
+                                        isActive = true
+                                    )
+                                    // Folosim document().set() în loc de add() pentru a fi siguri de ID
+                                    repository.createStudySession(newSession)
+                                }
+                            } else {
+                                println("Eroare: Unul dintre ID-uri este gol!")
+                            }
+                        }) {
+                            Text("Match!")
+                        }
+                    }
+                }
+            }
+
+            // AUTO-JOIN: Dacă apare o sesiune în care suntem incluși, afișăm ecranul de apel
+            // Detectăm dacă suntem parte dintr-o sesiune
+            val mySession = activeSessions.find { it.participantIds.contains(currentUserId) }
+
+            if (mySession != null && mySession.id.isNotEmpty()) {
+                VideoCallScreen(mySession, repository)
+            }
+        }
+    }
+}
+
+// FUNCȚIA MUTATĂ ÎN AFARĂ
+@Composable
+fun VideoCallScreen(session: StudySession, repository: AppRepository) {
+    val scope = rememberCoroutineScope() // Avem nevoie de scope pentru apeluri Firebase
+    val token by repository.watchSessionToken(session.id).collectAsState("")
+
+    Column(Modifier.background(Color.Black).fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
+        // ... restul UI-ului tău ...
+
+        Button(onClick = {
+            scope.launch {
+                try {
+                    // Trimitem obiectul 'session' primit ca parametru în VideoCallScreen
+                    repository.endSession(session)
+                } catch (e: Exception) {
+                    println("Eroare la închidere: ${e.message}")
+                }
+            }
+        }) {
+            Text("Închide Apel", color = Color.White)
         }
     }
 }
