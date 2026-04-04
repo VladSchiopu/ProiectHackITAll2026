@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "755749979674",
+    "project_id": "proiecthack2026",
+    "storage_bucket": "proiecthack2026.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:755749979674:android:f945e7ddcc29d41b1b73a3",
+        "android_client_info": {
+          "package_name": "org.example.project"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB2ESlniflnCQYFpyzHKdU94meulyDuePw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
