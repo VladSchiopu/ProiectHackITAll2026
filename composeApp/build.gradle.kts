@@ -2,11 +2,14 @@ import org.jetbrains.compose.desktop.application.dsl.TargetFormat
 import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
+
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
     alias(libs.plugins.androidApplication)
     alias(libs.plugins.composeMultiplatform)
     alias(libs.plugins.composeCompiler)
+    alias(libs.plugins.kotlinSerialization)
+    id("com.google.gms.google-services")
 }
 
 kotlin {
@@ -21,12 +24,7 @@ kotlin {
         browser()
         binaries.executable()
     }
-    
-    @OptIn(ExperimentalWasmDsl::class)
-    wasmJs {
-        browser()
-        binaries.executable()
-    }
+
     
     sourceSets {
         androidMain.dependencies {
@@ -34,6 +32,9 @@ kotlin {
             implementation(libs.androidx.activity.compose)
         }
         commonMain.dependencies {
+            implementation("dev.gitlive:firebase-firestore:2.4.0")
+            implementation("dev.gitlive:firebase-auth:2.4.0")
+            implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
             implementation(libs.compose.runtime)
             implementation(libs.compose.foundation)
             implementation(libs.compose.material3)
