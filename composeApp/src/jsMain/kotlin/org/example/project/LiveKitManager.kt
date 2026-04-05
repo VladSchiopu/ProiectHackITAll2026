@@ -6,7 +6,8 @@ import org.example.project.repository.AppRepository // Importă repository-ul t�
 
 // 1. Implementarea pentru deschiderea tab-ului nou
 actual fun openVideoSession(url: String) {
-    window.location.href = url
+    //window.location.href = url
+    kotlinx.browser.window.open(url, "_blank")
 }
 
 // 2. Implementarea pentru cererea HTTP către serverul tău Node.js

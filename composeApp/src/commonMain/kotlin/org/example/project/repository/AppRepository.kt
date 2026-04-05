@@ -126,4 +126,12 @@ class AppRepository {
             .snapshots()
             .map { query -> query.documents.mapNotNull { it.data<Objective>() } }
     }
+
+    fun getCompletedSessions(userId: String): Flow<List<StudySession>> {
+        return db.collection("sessions")
+            .where("participantIds", arrayContains = userId)
+            .where("isActive", equalTo = false) // Doar cele terminate
+            .snapshots()
+            .map { query -> query.documents.mapNotNull { it.data<StudySession>() } }
+    }
 }
