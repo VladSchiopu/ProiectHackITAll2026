@@ -43,6 +43,11 @@ class AppRepository {
         )
     }
 
+    // În AppRepository.kt
+    suspend fun updateSessionToken(sessionId: String, token: String) {
+        db.collection("sessions").document(sessionId).update("liveKitToken" to token)
+    }
+
     // --- LOGICĂ MATCHMAKING (Real-time) ---
 
     // Această funcție returnează o listă care se updatează singură când cineva intră/iese de la studiu
@@ -107,5 +112,18 @@ class AppRepository {
         return db.collection("sessions").document(sessionId)
             .snapshots()
             .map { it.data<StudySession>().liveKitToken }
+    }
+
+    // Salvare obiectiv nou
+    suspend fun createObjective(objective: Objective) {
+        db.collection("objectives").document(objective.id).set(objective)
+    }
+
+    // Ascultăm obiectivele unui user
+    fun getUserObjectives(userId: String): Flow<List<Objective>> {
+        return db.collection("objectives")
+            .where("userId", equalTo = userId)
+            .snapshots()
+            .map { query -> query.documents.mapNotNull { it.data<Objective>() } }
     }
 }

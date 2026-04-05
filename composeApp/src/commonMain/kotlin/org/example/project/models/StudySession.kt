@@ -9,6 +9,7 @@ data class StudySession(
     val participantIds: List<String> = emptyList(),
     val subject: String = "",
     val startTime: Double = 0.0, // SCHIMBĂ din Long în Double
+    val objectiveId: String = "",
     val isActive: Boolean = true,
     val liveKitRoomName: String = "",
     val liveKitToken: String = ""
