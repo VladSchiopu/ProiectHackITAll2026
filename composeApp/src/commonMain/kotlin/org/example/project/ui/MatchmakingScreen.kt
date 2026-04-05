@@ -22,6 +22,7 @@ import org.example.project.models.Objective
 import org.example.project.models.StudySession
 import org.example.project.repository.AppRepository
 import org.example.project.theme.*
+import org.example.project.fetchAndStoreToken
 
 @Composable
 fun MatchmakingScreen(userId: String, userName: String, objective: Objective, repository: AppRepository) {
@@ -62,6 +63,7 @@ fun MatchmakingScreen(userId: String, userName: String, objective: Objective, re
                         subject = objective.tag, objectiveId = objective.id, startTime = 0.0, isActive = true
                     ))
                     // Aici chemi funcția ta care ia tokenul din Firebase Functions (AppRepository)
+                    fetchAndStoreToken(tokenUrl, sessionId, repository)
                 }
             },
             modifier = Modifier.fillMaxWidth().height(56.dp),
@@ -97,7 +99,15 @@ fun MatchmakingScreen(userId: String, userName: String, objective: Objective, re
                                 scope.launch {
                                     val ids = listOf(userId, partner.id).sorted()
                                     val sessionId = "session_${ids[0]}_${ids[1]}"
-                                    // Creare sesiune cu partener
+                                    val tokenUrl = "http://localhost:3000/get-token?user=$userId&room=$sessionId"
+
+                                    repository.createStudySession(StudySession(
+                                        id = sessionId, creatorId = userId, participantIds = listOf(userId, partner.id),
+                                        subject = objective.tag, objectiveId = objective.id, startTime = 0.0, isActive = true
+                                    ))
+
+                                    // Din nou, linia magică pentru generarea biletului LiveKit
+                                    fetchAndStoreToken(tokenUrl, sessionId, repository)
                                 }
                             },
                             colors = ButtonDefaults.buttonColors(containerColor = NeonGreen, contentColor = BlackAccent),
