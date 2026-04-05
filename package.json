@@ -15,5 +15,14 @@
     "dotenv": "^17.4.0",
     "express": "^5.2.1",
     "livekit-server-sdk": "^2.15.0"
-  }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/VladSchiopu/ProiectHackITAll2026.git"
+  },
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/VladSchiopu/ProiectHackITAll2026/issues"
+  },
+  "homepage": "https://github.com/VladSchiopu/ProiectHackITAll2026#readme"
 }
